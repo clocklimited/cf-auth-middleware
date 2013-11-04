@@ -71,7 +71,6 @@ describe('authentication middleware', function () {
     var date = (new Date()).toUTCString()
       , hash = createSignature(authedAdministrator.key, 'GET', '', date, '/')
 
-
     var r = request(app)
       .get('/')
       .set('Accept', 'application/json')
