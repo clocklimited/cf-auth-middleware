@@ -8,6 +8,7 @@ function createMiddleware(authProvider, options) {
 
   if (!options) options = {}
   var logger = options.logger || console
+    , reqProperty = options.reqProperty || 'authedClient'
 
   if (typeof authProvider.authenticate !== 'function') {
     throw new Error('Expecting an authenticate function')
@@ -31,10 +32,14 @@ function createMiddleware(authProvider, options) {
     // Don't auth options, used in CORS preflight
     if (req.method === 'OPTIONS') return next()
 
-    verify(req, function (err, success) {
-      // Don't worry about err, only allow request to complete if success=true
-      // otherwise respond with a 401 and authenticate header
-      if (success) return next()
+    verify(req, function (err, clientId) {
+      // Don't worry about err, only allow request to complete if clientId
+      // exists otherwise respond with a 401 and authenticate header
+      if (clientId) {
+        // Attach the authed client's id to req for use further down the stack
+        if (reqProperty) req[reqProperty] = clientId
+        return next()
+      }
       res.header('www-authenticate', 'Catfish')
       return res.send(401)
     })
@@ -50,7 +55,7 @@ function createMiddleware(authProvider, options) {
 
     if (creds instanceof Error) {
       logger.warn(creds.message)
-      return cb(null, false)
+      return cb(null)
     }
 
     authProvider.lookupKey(creds.id, function (err, key) {
@@ -58,13 +63,13 @@ function createMiddleware(authProvider, options) {
 
       var valid = validSignature(req, key, creds.key)
 
-      if (valid) {
-        logger.debug('Authorization successful:', creds.id)
-      } else {
+      if (!valid) {
         logger.warn('Unsuccessful authorization', creds)
+        logger.debug('Authorization successful:', creds.id)
+        return cb(null)
       }
 
-      return cb(null, valid)
+      cb(null, creds.id)
 
     })
 

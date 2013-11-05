@@ -160,4 +160,50 @@ describe('authentication middleware', function () {
       })
   })
 
+
+  it('should assign the authed client\'s id to req[reqProperty]', function (done) {
+
+    var app2 = express()
+    app.use(createMiddleware(authProvider, { logger: noopLogger }))
+    app.use(function (req, res, next) {
+      req.authedClient.should.equal(authedAdministrator._id)
+      next()
+    })
+    createRoutes(app2)
+
+    var date = (new Date()).toUTCString()
+      , hash = createSignature(authedAdministrator.key, 'GET', '', date, '/')
+
+    var r = request(app2)
+      .get('/')
+      .set('Authorization', 'Catfish ' + authedAdministrator._id + ':' + hash)
+      .end(function () {
+        r.app.close()
+        done()
+      })
+  })
+
+
+  it('should support a custom reqProperty', function (done) {
+
+    var app2 = express()
+    app.use(createMiddleware(authProvider, { logger: noopLogger, reqProperty: 'ohla' }))
+    app.use(function (req, res, next) {
+      req.ohla.should.equal(authedAdministrator._id)
+      next()
+    })
+    createRoutes(app2)
+
+    var date = (new Date()).toUTCString()
+      , hash = createSignature(authedAdministrator.key, 'GET', '', date, '/')
+
+    var r = request(app2)
+      .get('/')
+      .set('Authorization', 'Catfish ' + authedAdministrator._id + ':' + hash)
+      .end(function () {
+        r.app.close()
+        done()
+      })
+  })
+
 })

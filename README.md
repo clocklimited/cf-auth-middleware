@@ -22,7 +22,6 @@ app.get('/private', authMiddleware, function (req, res) {
 })
 ```
 
-
 An authenticated request contains the following headers:
 
 ```
@@ -42,6 +41,19 @@ function createSignature(key, method, contentType, date, path) {
   return hmac.update(packet).digest('base64')
 }
 ```
+
+## API
+
+### var createMiddleware = require('cf-auth-middleware')
+
+### var middleware = createMiddleware(AuthProvider: authProvider, Object: options)
+
+`authProvider` is an instance of `cf-auth-provider`.
+
+Options:
+
+- `options.logger`: an object with `debug()`, `info()`, `warn()`, `error()`. Defaults to `console`.
+- `options.reqProperty`: the authed client's id is stored on the request object: `req[options.reqProperty]`. Defaults to `authedClient`.
 
 ## Credits
 Built by developers at [Clock](http://clock.co.uk).
