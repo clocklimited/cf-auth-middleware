@@ -22,7 +22,26 @@ app.get('/private', authMiddleware, function (req, res) {
 })
 ```
 
-`@todo` explain how the client must sign the request, and what headers are required.
+
+An authenticated request contains the following headers:
+
+```
+Content-Type: 'application/json'
+x-cf-date: 'Tue, 05 Nov 2013 12:22:23 GMT'
+authorization: 'Catfish {authorizing entity id}:{signed request}'
+```
+
+The client must sign the request with the following algorithm:
+
+```js
+var crypto = require('crypto')
+
+function createSignature(key, method, contentType, date, path) {
+  var hmac = crypto.createHmac('sha1', key)
+    , packet = method + '\n\n' + (contentType || '') + '\n' + date + '\n\n' + path
+  return hmac.update(packet).digest('base64')
+}
+```
 
 ## Credits
 Built by developers at [Clock](http://clock.co.uk).
