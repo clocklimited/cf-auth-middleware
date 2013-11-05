@@ -12,6 +12,7 @@ function createAuthProvider() {
     }
 
   function lookupKey(id, cb) {
+    if (id === 'fail') return cb(new Error('uh oh'))
     cb(null, sessions[id])
   }
 
