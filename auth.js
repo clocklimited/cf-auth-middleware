@@ -1,8 +1,7 @@
 module.exports = createMiddleware
 
-var crypto = require('crypto')
-  , url = require('url')
-  , parseAuthHeader = require('./header-parser')
+var parseAuthHeader = require('./header-parser')
+  , createSignature = require('cf-signature')
 
 function createMiddleware(authProvider, options) {
 
@@ -79,20 +78,16 @@ function createMiddleware(authProvider, options) {
    * Sign the request and see if it matches the signature
    * the client sent. Returns true if it matches, false if not.
    */
-  function validSignature(req, key, sig) {
+  function validSignature(req, key, theirSig) {
 
     if (!key) return false
 
-    var urlParts = url.parse(req.url)
-      , hmac = crypto.createHmac('sha1', key)
-      , packet = req.method
-        + '\n\n' + (req.headers['content-type'] ? req.headers['content-type'].split(';')[0] : '')
-        + '\n' + req.headers['x-cf-date'] + '\n\n' + urlParts.pathname
-      , hash = hmac.update(packet).digest('base64')
+    var contentType = req.headers['content-type'] ? req.headers['content-type'].split(';')[0] : ''
+      , ourSig = createSignature(key, req.method, contentType, req.headers['x-cf-date'], req.url)
 
-    logger.debug('Comparing:', hash, sig, packet)
+    logger.debug('Comparing:', ourSig, theirSig)
 
-    return hash === sig
+    return theirSig === ourSig
 
   }
 
