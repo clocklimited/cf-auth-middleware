@@ -2,7 +2,7 @@
   "author": "Ben Gourley",
   "name": "cf-auth-middleware",
   "description": "Authentication middleware for APIs using cf-auth-provider",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "tags": [],
   "repository": {
     "type": "git",
@@ -26,13 +26,12 @@
     "cf-signature": "0.0.1"
   },
   "devDependencies": {
-    "supertest": "~0.8.3",
+    "supertest": "~0.8.2",
     "mocha": "1",
     "should": "2",
     "istanbul": "0",
     "jshint": "2",
     "jshint-full-path": "0",
-    "supertest": "~0.8.2",
     "express": "~3.4.4",
     "hat": "0.0.3"
   }
