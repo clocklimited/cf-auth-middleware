@@ -206,4 +206,22 @@ describe('authentication middleware', function () {
       })
   })
 
+  it('should support a querystring in the url', function (done) {
+
+    var date = (new Date()).toUTCString()
+      , hash = createSignature(authedAdministrator.key, 'GET', '', date, '/?foo=bar')
+
+    var r = request(app)
+      .get('/?foo=bar')
+      .set('Accept', 'application/json')
+      .set('x-cf-date', date)
+      .set('Authorization', 'Catfish ' + authedAdministrator._id + ':' + hash)
+      .end(function (error, res) {
+        res.statusCode.should.equal(200)
+        r.app.close()
+        done()
+      })
+
+  })
+
 })
