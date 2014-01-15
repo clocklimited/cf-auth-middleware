@@ -23,10 +23,10 @@
     "node": ">=0.8"
   },
   "dependencies": {
-    "supertest": "~0.8.3",
     "cf-signature": "0.0.1"
   },
   "devDependencies": {
+    "supertest": "~0.8.3",
     "mocha": "1",
     "should": "2",
     "istanbul": "0",
