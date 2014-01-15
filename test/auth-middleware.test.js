@@ -120,7 +120,7 @@ describe('authentication middleware', function () {
 
   // This is skipped until https://github.com/visionmedia/superagent/pull/284 is merged and supertest is updated
   // because .set('Content-Type', x) can't hande the charset part.
-  it.skip('should work when the charset parameter of the Content-Type header is set', function (done) {
+  it('should work when the charset parameter of the Content-Type header is set', function (done) {
     var date = (new Date()).toUTCString()
       , hash = createSignature(authedAdministrator.key, 'POST', 'application/json', date, '/')
 
