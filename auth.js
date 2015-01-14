@@ -1,7 +1,8 @@
 module.exports = createMiddleware
 
-var parseAuthHeader = require('./header-parser')
+var getCredentials = require('./get-credentials')
   , createSignature = require('cf-signature')
+  , url = require('url')
 
 function createMiddleware(authProvider, options) {
 
@@ -50,17 +51,41 @@ function createMiddleware(authProvider, options) {
    */
   function verify(req, cb) {
 
-    var creds = parseAuthHeader(req)
+    var authPacket
+      , creds
 
-    if (creds instanceof Error) {
-      logger.warn(creds.message)
+    try {
+      creds = getCredentials(req)
+    } catch (e) {
+      logger.warn(e.message)
+      return cb(null)
+    }
+
+    // Get the appropriate authPacket. Either header or querystring.
+    if (req.headers.authorization) {
+      authPacket =
+        { ttl: null
+        , date: req.headers['x-cf-date' ] }
+    } else {
+      authPacket =
+        { ttl: null
+        , date: req.query['x-cf-date' ] }
+    }
+
+    // Is the date in number format
+    if (!isNaN(authPacket.date)) {
+      authPacket.date = parseInt(authPacket.date)
+    }
+
+    if (authPacket.date === undefined) {
+      logger.warn('Missing x-cf-date')
       return cb(null)
     }
 
     authProvider.lookupKey(creds.id, function (err, key) {
       if (err) return cb(err)
 
-      var valid = validSignature(req, key, creds.key)
+      var valid = validSignature(req, authPacket, key, creds.signature)
 
       if (!valid) {
         logger.warn('Unsuccessful authorization', creds)
@@ -78,16 +103,24 @@ function createMiddleware(authProvider, options) {
    * Sign the request and see if it matches the signature
    * the client sent. Returns true if it matches, false if not.
    */
-  function validSignature(req, key, theirSig) {
+  function validSignature(req, authPacket, key, theirSig) {
 
     if (!key) return false
+    var urlParts = url.parse(req.url, true)
+    ; delete urlParts.search
+    ; delete urlParts.query.authorization
+    ; delete urlParts.query['x-cf-date']
 
     var contentType = req.headers['content-type'] ? req.headers['content-type'].split(';')[0] : ''
-      , ourSig = createSignature(key, req.method, contentType, req.headers['x-cf-date'], req.url)
+      , ourSig = createSignature(key, req.method, contentType, authPacket.date, url.format(urlParts))
+      , requestDate = (new Date(authPacket.date)).getTime()
+      , currentDate = Date.now()
+      , difference = Math.abs(currentDate - requestDate)
 
     logger.debug('Comparing:', ourSig, theirSig)
+    logger.debug('Request Time: ' + requestDate + ' Current Time: ' + currentDate + ' Difference: ' + difference)
 
-    return theirSig === ourSig
+    return (theirSig === ourSig) && difference < 6000
 
   }
 

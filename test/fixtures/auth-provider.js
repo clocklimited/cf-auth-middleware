@@ -5,11 +5,10 @@ var genKey = require('hat')
 function createAuthProvider() {
 
   var sessions = {}
-
-  var users =
-    { 'ben.gourley@clock.co.uk': { _id: 'a', password: 'hai' }
-    , 'paul.serby@clock.co.uk': { _id: 'b', password: 'face' }
-    }
+    , users =
+      { 'ben.gourley@clock.co.uk': { _id: 'a', password: 'hai' }
+      , 'paul.serby@clock.co.uk': { _id: 'b', password: 'face' }
+      }
 
   function lookupKey(id, cb) {
     if (id === 'fail') return cb(new Error('uh oh'))

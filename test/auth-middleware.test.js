@@ -1,12 +1,14 @@
 var request = require('supertest')
-  , createMiddleware = require('../')
+  , createMiddleware = require('..')
   , authProvider = require('./fixtures/auth-provider')()
   , createRoutes = require('./fixtures/routes')
-  , createSignature = require('./fixtures/signature')
+  , createSignature = require('cf-signature')
   , express = require('express')
   , noopLogger = { debug: noop, info: noop, warn: noop, error: noop }
+  , assert = require('assert')
 
-function noop() {}
+function noop() {
+}
 
 var app = express()
 app.use(createMiddleware(authProvider, { logger: noopLogger }))
@@ -28,17 +30,17 @@ describe('authentication middleware', function () {
 
   it('should error if the provided authProvider lacks an authenticate() function', function () {
 
-    (function () {
+    assert.throws(function () {
       createMiddleware({})
-    }).should.throw('Expecting an authenticate function')
+    }, /Expecting an authenticate function/)
 
   })
 
   it('should error if the provided authProvider lacks a lookupKey() function', function () {
 
-    (function () {
+    assert.throws(function () {
       createMiddleware({ authenticate: function () {} })
-    }).should.throw('Expecting a lookupKey function')
+    }, /Expecting a lookupKey function/)
 
   })
 
@@ -48,7 +50,7 @@ describe('authentication middleware', function () {
       .post('/')
       .set('Accept', 'application/json')
       .end(function (error, res) {
-        res.statusCode.should.equal(401)
+        assert.equal(res.statusCode, 401)
         r.app.close()
         done()
       })
@@ -61,7 +63,7 @@ describe('authentication middleware', function () {
       .set('Accept', 'application/json')
       .expect(401)
       .end(function (error, res) {
-        res.headers['www-authenticate'].should.equal('Catfish')
+        assert.equal(res.headers['www-authenticate'], 'Catfish')
         r.app.close()
         done()
       })
@@ -74,28 +76,41 @@ describe('authentication middleware', function () {
       .set('authorization', 'Catfish x:y')
       .expect(401)
       .end(function (error, res) {
-        res.headers['www-authenticate'].should.equal('Catfish')
+        assert.equal(res.headers['www-authenticate'], 'Catfish')
         r.app.close()
         done()
       })
   })
 
+  it('should respond with a 401 if no x-cf-date is presents in header', function (done) {
+
+    var date = (new Date()).toUTCString()
+      , hash = createSignature(authedAdministrator.key, 'GET', '', date, '/')
+      , r = request(app)
+        .get('/')
+        .set('Accept', 'application/json')
+        .set('Authorization', 'Catfish ' + authedAdministrator._id + ':' + hash)
+        .end(function (error, res) {
+          assert.equal(res.statusCode, 401)
+          r.app.close()
+          done()
+        })
+  })
 
   it('should respond with a 200 if a good signature is supplied on GET', function (done) {
 
     var date = (new Date()).toUTCString()
       , hash = createSignature(authedAdministrator.key, 'GET', '', date, '/')
-
-    var r = request(app)
-      .get('/')
-      .set('Accept', 'application/json')
-      .set('x-cf-date', date)
-      .set('Authorization', 'Catfish ' + authedAdministrator._id + ':' + hash)
-      .end(function (error, res) {
-        res.statusCode.should.equal(200)
-        r.app.close()
-        done()
-      })
+      , r = request(app)
+        .get('/')
+        .set('Accept', 'application/json')
+        .set('x-cf-date', date)
+        .set('Authorization', 'Catfish ' + authedAdministrator._id + ':' + hash)
+        .end(function (error, res) {
+          assert.equal(res.statusCode, 200)
+          r.app.close()
+          done()
+        })
 
   })
 
@@ -103,47 +118,42 @@ describe('authentication middleware', function () {
 
     var date = (new Date()).toUTCString()
       , hash = createSignature(authedAdministrator.key, 'POST', 'application/json', date, '/')
-
-    var r = request(app)
-      .post('/')
-      .send({ some: 'Date', onThe: 'POST request' })
-      .set('Accept', 'application/json')
-      .set('x-cf-date', date)
-      .set('Authorization', 'Catfish ' + authedAdministrator._id + ':' + hash)
-      .end(function (error, res) {
-        res.statusCode.should.equal(200)
-        r.app.close()
-        done()
-      })
+      , r = request(app)
+        .post('/')
+        .send({ some: 'Date', onThe: 'POST request' })
+        .set('Accept', 'application/json')
+        .set('x-cf-date', date)
+        .set('Authorization', 'Catfish ' + authedAdministrator._id + ':' + hash)
+        .end(function (error, res) {
+          assert.equal(res.statusCode, 200)
+          r.app.close()
+          done()
+        })
 
   })
 
-  // This is skipped until https://github.com/visionmedia/superagent/pull/284 is merged and supertest is updated
-  // because .set('Content-Type', x) can't hande the charset part.
   it('should work when the charset parameter of the Content-Type header is set', function (done) {
     var date = (new Date()).toUTCString()
       , hash = createSignature(authedAdministrator.key, 'POST', 'application/json', date, '/')
-
-    var r = request(app)
-      .post('/')
-      .send({ some: 'Date', onThe: 'POST request' })
-      .set('Accept', 'application/json')
-      .set('x-cf-date', date)
-      .set('Authorization', 'Catfish ' + authedAdministrator._id + ':' + hash)
-      .set('Content-Type', 'application/json; charset=utf-8')
-      .end(function (error, res) {
-        res.statusCode.should.equal(200)
-        r.app.close()
-        done()
-      })
-
+      , r = request(app)
+        .post('/')
+        .send({ some: 'Date', onThe: 'POST request' })
+        .set('Accept', 'application/json')
+        .set('x-cf-date', date)
+        .set('Authorization', 'Catfish ' + authedAdministrator._id + ':' + hash)
+        .set('Content-Type', 'application/json; charset=utf-8')
+        .end(function (error, res) {
+          assert.equal(res.statusCode, 200)
+          r.app.close()
+          done()
+        })
   })
 
   it('should not try to authenticate OPTIONS requests', function (done) {
     var r = request(app)
       .options('/')
       .end(function (error, res) {
-        res.statusCode.should.equal(200)
+        assert.equal(res.statusCode, 200)
         r.app.close()
         done()
       })
@@ -154,74 +164,88 @@ describe('authentication middleware', function () {
       .get('/')
       .set('Authorization', 'Catfish fail:xyz')
       .end(function (error, res) {
-        res.statusCode.should.equal(401)
+        assert.equal(res.statusCode, 401)
         r.app.close()
         done()
       })
   })
-
 
   it('should assign the authed client\'s id to req[reqProperty]', function (done) {
 
     var app2 = express()
     app.use(createMiddleware(authProvider, { logger: noopLogger }))
     app.use(function (req, res, next) {
-      req.authedClient.should.equal(authedAdministrator._id)
+      assert.equal(req.authedClient, authedAdministrator._id)
       next()
     })
     createRoutes(app2)
 
     var date = (new Date()).toUTCString()
       , hash = createSignature(authedAdministrator.key, 'GET', '', date, '/')
-
-    var r = request(app2)
-      .get('/')
-      .set('Authorization', 'Catfish ' + authedAdministrator._id + ':' + hash)
-      .end(function () {
-        r.app.close()
-        done()
-      })
+      , r = request(app2)
+        .get('/')
+        .set('Authorization', 'Catfish ' + authedAdministrator._id + ':' + hash)
+        .end(function () {
+          r.app.close()
+          done()
+        })
   })
-
 
   it('should support a custom reqProperty', function (done) {
 
     var app2 = express()
     app.use(createMiddleware(authProvider, { logger: noopLogger, reqProperty: 'ohla' }))
     app.use(function (req, res, next) {
-      req.ohla.should.equal(authedAdministrator._id)
+      assert.equal(req.ohla, authedAdministrator._id)
       next()
     })
     createRoutes(app2)
 
     var date = (new Date()).toUTCString()
       , hash = createSignature(authedAdministrator.key, 'GET', '', date, '/')
-
-    var r = request(app2)
-      .get('/')
-      .set('Authorization', 'Catfish ' + authedAdministrator._id + ':' + hash)
-      .end(function () {
-        r.app.close()
-        done()
-      })
+      , r = request(app2)
+        .get('/')
+        .set('Authorization', 'Catfish ' + authedAdministrator._id + ':' + hash)
+        .end(function () {
+          r.app.close()
+          done()
+        })
   })
 
   it('should support a querystring in the url', function (done) {
 
     var date = (new Date()).toUTCString()
       , hash = createSignature(authedAdministrator.key, 'GET', '', date, '/?foo=bar')
+      , r = request(app)
+        .get('/?foo=bar')
+        .set('Accept', 'application/json')
+        .set('x-cf-date', date)
+        .set('Authorization', 'Catfish ' + authedAdministrator._id + ':' + hash)
+        .end(function (error, res) {
+          assert.equal(res.statusCode, 200)
+          r.app.close()
+          done()
+        })
 
-    var r = request(app)
-      .get('/?foo=bar')
-      .set('Accept', 'application/json')
-      .set('x-cf-date', date)
-      .set('Authorization', 'Catfish ' + authedAdministrator._id + ':' + hash)
-      .end(function (error, res) {
-        res.statusCode.should.equal(200)
-        r.app.close()
-        done()
-      })
+  })
 
+  describe('querystring base authentication', function() {
+
+    it('should respond with a 200 if a good signature via querystring is supplied on GET', function (done) {
+
+      var date = (new Date()).getTime()
+        , hash = createSignature(authedAdministrator.key, 'GET', '', date, '/')
+        , url = '/?authorization=' + authedAdministrator._id + ':' + encodeURIComponent(hash) + '&x-cf-date=' + date
+        , r = request(app)
+          .get(url)
+          .set('Accept', 'application/json')
+          .end(function (error, res) {
+            assert.equal(res.statusCode, 200)
+            r.app.close()
+            done()
+          })
+
+    })
   })
 
 })
