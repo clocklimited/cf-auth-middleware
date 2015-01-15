@@ -106,6 +106,8 @@ function createMiddleware(authProvider, options) {
   function validSignature(req, authPacket, key, theirSig) {
 
     if (!key) return false
+
+    // We use a URL without the auth querystring info for the signature
     var urlParts = url.parse(req.url, true)
     ; delete urlParts.search
     ; delete urlParts.query.authorization
@@ -120,7 +122,7 @@ function createMiddleware(authProvider, options) {
     logger.debug('Comparing:', ourSig, theirSig)
     logger.debug('Request Time: ' + requestDate + ' Current Time: ' + currentDate + ' Difference: ' + difference)
 
-    return (theirSig === ourSig) && difference < 6000
+    return (theirSig === ourSig) && difference < 60000
 
   }
 
