@@ -87,7 +87,8 @@ function createMiddleware(authProvider, options) {
     authProvider.lookupKey(creds.id, function (err, key) {
       if (err) return cb(err)
 
-      var valid = validSignature(req, authPacket, key, creds.signature, logger)
+      var valid = validSignature(req, authPacket, key, creds.signature
+        , { logger: logger, ignoreQueryKeys: options.ignoreQueryKeys })
 
       if (!valid) {
         logger.warn('Unsuccessful authorization', creds)
@@ -107,7 +108,10 @@ function createMiddleware(authProvider, options) {
  * Sign the request and see if it matches the signature
  * the client sent. Returns true if it matches, false if not.
  */
-function validSignature(req, authPacket, key, theirSig, logger) {
+function validSignature(req, authPacket, key, theirSig, options) {
+  options = options || {}
+
+  options.ignoreQueryKeys = options.ignoreQueryKeys || []
 
   if (!key) return false
 
@@ -117,14 +121,18 @@ function validSignature(req, authPacket, key, theirSig, logger) {
   ; delete urlParts.query.authorization
   ; delete urlParts.query['x-cf-date']
 
+  options.ignoreQueryKeys.forEach(function (key) {
+    delete urlParts.query[key]
+  })
+
   var contentType = req.headers['content-type'] ? req.headers['content-type'].split(';')[0] : ''
     , ourSig = createSignature(key, req.method, contentType, authPacket.date, url.format(urlParts))
     , requestDate = (new Date(authPacket.date)).getTime()
     , currentDate = Date.now()
     , difference = Math.abs(currentDate - requestDate)
 
-  logger.debug('Comparing:', ourSig, theirSig)
-  logger.debug('Request Time: ' + requestDate + ' Current Time: ' + currentDate + ' Difference: ' + difference)
+  options.logger.debug('Comparing:', ourSig, theirSig)
+  options.logger.debug('Request Time: ' + requestDate + ' Current Time: ' + currentDate + ' Difference: ' + difference)
 
   return (theirSig === ourSig) && difference < 60000
 
