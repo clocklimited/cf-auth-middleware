@@ -6,6 +6,7 @@ var request = require('supertest')
   , express = require('express')
   , noopLogger = { debug: noop, info: noop, warn: noop, error: noop }
   , assert = require('assert')
+  , createSignature = require('cf-signature')
 
 function noop() {
 }
@@ -173,8 +174,8 @@ describe('authentication middleware', function () {
   it('should assign the authed client\'s id to req[reqProperty]', function (done) {
 
     var app2 = express()
-    app.use(createMiddleware(authProvider, { logger: noopLogger }))
-    app.use(function (req, res, next) {
+    app2.use(createMiddleware(authProvider, { logger: noopLogger }))
+    app2.use(function (req, res, next) {
       assert.equal(req.authedClient, authedAdministrator._id)
       next()
     })
@@ -194,8 +195,8 @@ describe('authentication middleware', function () {
   it('should support a custom reqProperty', function (done) {
 
     var app2 = express()
-    app.use(createMiddleware(authProvider, { logger: noopLogger, reqProperty: 'ohla' }))
-    app.use(function (req, res, next) {
+    app2.use(createMiddleware(authProvider, { logger: noopLogger, reqProperty: 'ohla' }))
+    app2.use(function (req, res, next) {
       assert.equal(req.ohla, authedAdministrator._id)
       next()
     })
@@ -229,6 +230,26 @@ describe('authentication middleware', function () {
 
   })
 
+
+  it('should allow you to ignore certain querystring keys', function (done) {
+
+    var app2 = express()
+    app2.use(createMiddleware(authProvider, { logger: noopLogger, ignoreQueryKeys: [ 'ignored' ] }))
+    createRoutes(app2)
+
+    var date = (new Date()).toUTCString()
+      , hash = createSignature(authedAdministrator.key, 'GET', '', date, '/')
+
+    request(app2)
+      .get('/?ignored=1')
+      .set('x-cf-date', date)
+      .set('Authorization', 'Catfish ' + authedAdministrator._id + ':' + hash)
+      .end(function (error, res) {
+        assert.equal(res.statusCode, 200)
+        done()
+      })
+  })
+
   describe('querystring base authentication', function() {
 
     it('should respond with a 200 if a good signature via querystring is supplied on GET', function (done) {
@@ -246,6 +267,35 @@ describe('authentication middleware', function () {
           })
 
     })
+  })
+
+})
+
+describe('#validSignature()', function () {
+  var validSignature = createMiddleware.validSignature
+
+  it('should be exported as a separate function for use in non-express auth', function () {
+    assert.equal(typeof validSignature, 'function')
+  })
+
+  it('should allow ignoring of other querystring keys', function () {
+    var method = 'GET'
+      , date = new Date().getTime()
+      , path = '/a/b/c'
+      , request = { url: path + '?d=1&e=2', method: method, headers: {} }
+      , authPacket = { date: date }
+      , key = '123'
+      , signature = createSignature(key, method, '', date, path)
+      , invalid = validSignature(request, authPacket, key, signature, { logger: noopLogger })
+      , valid = validSignature(request, authPacket, key, signature
+        , { logger: noopLogger, ignoreQueryKeys: [ 'd', 'e' ] })
+
+    // Request is invalid when query string is taken into account
+    assert.equal(invalid, false)
+
+    // But valid when query string keys are ignored
+    assert.equal(valid, true)
+
   })
 
 })

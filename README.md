@@ -22,7 +22,7 @@ app.get('/private', authMiddleware, function (req, res) {
 })
 ```
 
-An authenticated request contains the following headers:
+An authenticated request must contain either the following headers:
 
 ```
 Content-Type: 'application/json'
@@ -30,17 +30,15 @@ x-cf-date: 'Tue, 05 Nov 2013 12:22:23 GMT'
 authorization: 'Catfish {authorizing entity id}:{signed request}'
 ```
 
-The client must sign the request with the following algorithm:
+***OR***
 
-```js
-var crypto = require('crypto')
+It must contain the following query string keys:
 
-function createSignature(key, method, contentType, date, path) {
-  var hmac = crypto.createHmac('sha1', key)
-    , packet = method + '\n\n' + (contentType || '') + '\n' + date + '\n\n' + path
-  return hmac.update(packet).digest('base64')
-}
 ```
+?authorization={authorizing entity id}:{signed request}&x-cf-date=1423481045233
+```
+
+The client must sign requests with the [cf-signature](https://github.com/clocklimited/cf-signature) module.
 
 ## API
 
@@ -54,6 +52,8 @@ Options:
 
 - `options.logger`: an object with `debug()`, `info()`, `warn()`, `error()`. Defaults to `console`.
 - `options.reqProperty`: the authed client's id is stored on the request object: `req[options.reqProperty]`. Defaults to `authedClient`.
+- `options.ignoreQueryKeys`: an array of keys to ignore when comparing the request to the signature.
+This is useful when requests get augmented by unknown cache-busting values. Defaults to `[]`.
 
 ## Credits
 Built by developers at [Clock](http://clock.co.uk).
