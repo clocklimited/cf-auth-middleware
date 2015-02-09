@@ -249,3 +249,11 @@ describe('authentication middleware', function () {
   })
 
 })
+
+describe('#validSignature()', function () {
+
+  it('should be exported as a separate function for use in non-express auth', function () {
+    assert.equal(typeof createMiddleware.validSignature, 'function')
+  })
+  
+})

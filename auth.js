@@ -1,5 +1,7 @@
 module.exports = createMiddleware
 
+module.exports.validSignature = validSignature
+
 var getCredentials = require('./get-credentials')
   , createSignature = require('cf-signature')
   , url = require('url')
@@ -85,7 +87,7 @@ function createMiddleware(authProvider, options) {
     authProvider.lookupKey(creds.id, function (err, key) {
       if (err) return cb(err)
 
-      var valid = validSignature(req, authPacket, key, creds.signature)
+      var valid = validSignature(req, authPacket, key, creds.signature, logger)
 
       if (!valid) {
         logger.warn('Unsuccessful authorization', creds)
@@ -99,31 +101,31 @@ function createMiddleware(authProvider, options) {
 
   }
 
-  /*
-   * Sign the request and see if it matches the signature
-   * the client sent. Returns true if it matches, false if not.
-   */
-  function validSignature(req, authPacket, key, theirSig) {
+}
 
-    if (!key) return false
+/*
+ * Sign the request and see if it matches the signature
+ * the client sent. Returns true if it matches, false if not.
+ */
+function validSignature(req, authPacket, key, theirSig, logger) {
 
-    // We use a URL without the auth querystring info for the signature
-    var urlParts = url.parse(req.url, true)
-    ; delete urlParts.search
-    ; delete urlParts.query.authorization
-    ; delete urlParts.query['x-cf-date']
+  if (!key) return false
 
-    var contentType = req.headers['content-type'] ? req.headers['content-type'].split(';')[0] : ''
-      , ourSig = createSignature(key, req.method, contentType, authPacket.date, url.format(urlParts))
-      , requestDate = (new Date(authPacket.date)).getTime()
-      , currentDate = Date.now()
-      , difference = Math.abs(currentDate - requestDate)
+  // We use a URL without the auth querystring info for the signature
+  var urlParts = url.parse(req.url, true)
+  ; delete urlParts.search
+  ; delete urlParts.query.authorization
+  ; delete urlParts.query['x-cf-date']
 
-    logger.debug('Comparing:', ourSig, theirSig)
-    logger.debug('Request Time: ' + requestDate + ' Current Time: ' + currentDate + ' Difference: ' + difference)
+  var contentType = req.headers['content-type'] ? req.headers['content-type'].split(';')[0] : ''
+    , ourSig = createSignature(key, req.method, contentType, authPacket.date, url.format(urlParts))
+    , requestDate = (new Date(authPacket.date)).getTime()
+    , currentDate = Date.now()
+    , difference = Math.abs(currentDate - requestDate)
 
-    return (theirSig === ourSig) && difference < 60000
+  logger.debug('Comparing:', ourSig, theirSig)
+  logger.debug('Request Time: ' + requestDate + ' Current Time: ' + currentDate + ' Difference: ' + difference)
 
-  }
+  return (theirSig === ourSig) && difference < 60000
 
 }
