@@ -83,7 +83,7 @@ describe('authentication middleware', function () {
       })
   })
 
-  it('should respond with a 401 if no x-cf-date is presents in header', function (done) {
+  it('should respond with a 401 if no x-cf-date is present in header', function (done) {
 
     var date = (new Date()).toUTCString()
       , hash = createSignature(authedAdministrator.key, 'GET', '', date, '/')
@@ -98,6 +98,44 @@ describe('authentication middleware', function () {
         })
   })
 
+  it('should respond with a 401 if an x-cf-date is outside of the acceptable default ttl (60s)', function (done) {
+
+    var date = new Date()
+    date.setHours(date.getHours() + 12)
+    var dateString = date.toUTCString()
+      , hash = createSignature(authedAdministrator.key, 'GET', '', dateString, '/')
+      , r = request(app)
+        .get('/')
+        .set('Accept', 'application/json')
+        .set('x-cf-date', dateString)
+        .set('Authorization', 'Catfish ' + authedAdministrator._id + ':' + hash)
+        .end(function (error, res) {
+          assert.equal(res.statusCode, 401)
+          r.app.close()
+          done()
+        })
+  })
+
+  it('should respond with a 401 if an x-cf-date is outside of the acceptable custom ttl', function (done) {
+
+    var date = new Date()
+    date.setHours(date.getHours() + 36)
+    var dateString = date.toUTCString()
+      , hash = createSignature(authedAdministrator.key, 'GET', '', dateString, '/')
+      , r = request(app)
+        .get('/')
+        .set('Accept', 'application/json')
+        .set('x-cf-date', dateString)
+        .set('x-cf-ttl', '86400000')
+        .set('Authorization', 'Catfish ' + authedAdministrator._id + ':' + hash)
+        .end(function (error, res) {
+          assert.equal(res.statusCode, 401)
+          r.app.close()
+          done()
+        })
+
+  })
+
   it('should respond with a 200 if a good signature is supplied on GET', function (done) {
 
     var date = (new Date()).toUTCString()
@@ -106,6 +144,26 @@ describe('authentication middleware', function () {
         .get('/')
         .set('Accept', 'application/json')
         .set('x-cf-date', date)
+        .set('Authorization', 'Catfish ' + authedAdministrator._id + ':' + hash)
+        .end(function (error, res) {
+          assert.equal(res.statusCode, 200)
+          r.app.close()
+          done()
+        })
+
+  })
+
+  it('should respond with a 200 if a good signature is supplied on GET with a custom TTL', function (done) {
+
+    var date = new Date()
+    date.setHours(date.getHours() + 12)
+    var dateString = date.toUTCString()
+      , hash = createSignature(authedAdministrator.key, 'GET', '', dateString, '/', 86400000)
+      , r = request(app)
+        .get('/')
+        .set('Accept', 'application/json')
+        .set('x-cf-date', dateString)
+        .set('x-cf-ttl', '86400000')
         .set('Authorization', 'Catfish ' + authedAdministrator._id + ':' + hash)
         .end(function (error, res) {
           assert.equal(res.statusCode, 200)
@@ -267,6 +325,26 @@ describe('authentication middleware', function () {
           })
 
     })
+
+    it('should respond with a 200 if a good signature via querystring is supplied with a custom TTL', function (done) {
+
+      var date = new Date()
+      date.setHours(date.getHours() + 12)
+      var dateString = date.getTime()
+        , hash = createSignature(authedAdministrator.key, 'GET', '', dateString, '/', 86400000)
+        , url = '/?authorization=' + authedAdministrator._id + ':' + encodeURIComponent(hash)
+            + '&x-cf-date=' + dateString + '&x-cf-ttl=86400000'
+        , r = request(app)
+          .get(url)
+          .set('Accept', 'application/json')
+          .end(function (error, res) {
+            assert.equal(res.statusCode, 200)
+            r.app.close()
+            done()
+          })
+
+    })
+
   })
 
 })
