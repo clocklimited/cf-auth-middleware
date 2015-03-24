@@ -66,23 +66,22 @@ function createMiddleware(authProvider, options) {
     // Get the appropriate authPacket. Either header or querystring.
     if (req.headers.authorization) {
       authPacket =
-        { ttl: null
+        { ttl: req.headers['x-cf-ttl' ]
         , date: req.headers['x-cf-date' ] }
     } else {
       authPacket =
-        { ttl: null
+        { ttl: req.query['x-cf-ttl' ]
         , date: req.query['x-cf-date' ] }
     }
 
-    // Is the date in number format
-    if (!isNaN(authPacket.date)) {
-      authPacket.date = parseInt(authPacket.date)
-    }
+    authPacket.date = getInt(authPacket.date)
 
     if (authPacket.date === undefined) {
       logger.warn('Missing x-cf-date')
       return cb(null)
     }
+
+    authPacket.ttl = getInt(authPacket.ttl)
 
     authProvider.lookupKey(creds.id, function (err, key) {
       if (err) return cb(err)
@@ -100,6 +99,13 @@ function createMiddleware(authProvider, options) {
 
     })
 
+  }
+
+  function getInt(val) {
+    if (!isNaN(val)) {
+      val = parseInt(val)
+    }
+    return val
   }
 
 }
@@ -120,20 +126,22 @@ function validSignature(req, authPacket, key, theirSig, options) {
   ; delete urlParts.search
   ; delete urlParts.query.authorization
   ; delete urlParts.query['x-cf-date']
+  ; delete urlParts.query['x-cf-ttl']
 
   options.ignoreQueryKeys.forEach(function (key) {
     delete urlParts.query[key]
   })
 
   var contentType = req.headers['content-type'] ? req.headers['content-type'].split(';')[0] : ''
-    , ourSig = createSignature(key, req.method, contentType, authPacket.date, url.format(urlParts))
+    , ourSig = createSignature(key, req.method, contentType, authPacket.date, url.format(urlParts), authPacket.ttl)
     , requestDate = (new Date(authPacket.date)).getTime()
     , currentDate = Date.now()
     , difference = Math.abs(currentDate - requestDate)
+    , maxDifference = authPacket.ttl || 60000
 
   options.logger.debug('Comparing:', ourSig, theirSig)
   options.logger.debug('Request Time: ' + requestDate + ' Current Time: ' + currentDate + ' Difference: ' + difference)
 
-  return (theirSig === ourSig) && difference < 60000
+  return (theirSig === ourSig) && difference < maxDifference
 
 }
