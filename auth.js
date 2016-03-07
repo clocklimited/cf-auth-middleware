@@ -43,7 +43,7 @@ function createMiddleware(authProvider, options) {
         return next()
       }
       res.header('www-authenticate', 'Catfish')
-      return res.send(401)
+      return res.sendStatus(401)
     })
 
   }

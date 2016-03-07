@@ -26,13 +26,13 @@
     "cf-signature": "^1.0.1"
   },
   "devDependencies": {
-    "supertest": "~0.8.2",
-    "mocha": "1",
-    "should": "2",
+    "express": "^4.13.4",
+    "hat": "0.0.3",
     "istanbul": "0",
     "jshint": "2",
     "jshint-full-path": "0",
-    "express": "~3.4.4",
-    "hat": "0.0.3"
+    "mocha": "1",
+    "should": "2",
+    "supertest": "~0.8.2"
   }
 }
