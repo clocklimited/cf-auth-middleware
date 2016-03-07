@@ -38,6 +38,19 @@ It must contain the following query string keys:
 ?authorization={authorizing entity id}:{signed request}&x-cf-date=1423481045233
 ```
 
+You can also specifiy a custom TTL for the request. This can be sent in either the headers or the query string:
+
+```
+Content-Type: 'application/json'
+x-cf-date: 'Tue, 05 Nov 2013 12:22:23 GMT'
+x-cf-ttl: '120000'
+authorization: 'Catfish {authorizing entity id}:{signed request}'
+```
+
+```
+?authorization={authorizing entity id}:{signed request}&x-cf-date=1423481045233&x-cf-ttl=120000
+```
+
 The client must sign requests with the [cf-signature](https://github.com/clocklimited/cf-signature) module.
 
 ## API
