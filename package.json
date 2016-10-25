@@ -9,13 +9,13 @@
     "url": "git@github.com:clocklimited/cf-auth-middleware"
   },
   "publishConfig": {
-    "registry": "http://npm.clockte.ch"
+    "registry": "http://registry.npmjs.org"
   },
   "main": "auth.js",
   "scripts": {
-    "lint": "./node_modules/.bin/jshint . --reporter=./node_modules/jshint-full-path/index.js",
+    "lint": "jshint . --reporter=./node_modules/jshint-full-path/index.js",
     "pretest": "npm run-script lint",
-    "test": "./node_modules/.bin/istanbul cover ./node_modules/.bin/_mocha -- -R spec -r should",
+    "test": "istanbul cover ./node_modules/.bin/_mocha -- -R spec -r should",
     "posttest": "istanbul check-coverage --statements 90 --branches 85 --functions 100 --lines 95 && rm -rf coverage",
     "prepublish": "npm test && npm prune"
   },
