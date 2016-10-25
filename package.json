@@ -23,7 +23,7 @@
     "node": ">=0.8"
   },
   "dependencies": {
-    "cf-signature": "^1.0.1"
+    "cf-signature": "^1.1.1"
   },
   "devDependencies": {
     "express": "^4.13.4",
