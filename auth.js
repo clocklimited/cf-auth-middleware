@@ -1,16 +1,12 @@
-module.exports = createMiddleware
-
-module.exports.validSignature = validSignature
-
 var getCredentials = require('./get-credentials')
-  , createSignature = require('cf-signature')
-  , url = require('url')
+var createSignature = require('cf-signature')
+var url = require('url')
+var debug = require('debug')('cf-auth-middleware')
 
-function createMiddleware(authProvider, options) {
-
+function createMiddleware (authProvider, options) {
   if (!options) options = {}
   var logger = options.logger || console
-    , reqProperty = options.reqProperty || 'authedClient'
+  var reqProperty = options.reqProperty || 'authedClient'
 
   if (typeof authProvider.authenticate !== 'function') {
     throw new Error('Expecting an authenticate function')
@@ -29,12 +25,12 @@ function createMiddleware(authProvider, options) {
    * If verification fails, the middleware ends the response with
    * a 401 and a header www-authenticate=Catfish.
    */
-  function middleware(req, res, next) {
-
+  function middleware (req, res, next) {
     // Don't auth options, used in CORS preflight
     if (req.method === 'OPTIONS') return next()
 
     verify(req, function (err, clientId) {
+      if (err) return next(err)
       // Don't worry about err, only allow request to complete if clientId
       // exists otherwise respond with a 401 and authenticate header
       if (clientId) {
@@ -45,39 +41,39 @@ function createMiddleware(authProvider, options) {
       res.header('www-authenticate', 'Catfish')
       return res.status(401).send()
     })
-
   }
 
   /*
    * Verify that the request was signed by an authenticated user.
    */
-  function verify(req, cb) {
-
+  function verify (req, cb) {
     var authPacket
-      , creds
+    var creds
 
     try {
       creds = getCredentials(req)
     } catch (e) {
-      logger.warn(e.message)
+      debug(e.message)
       return cb(null)
     }
 
     // Get the appropriate authPacket. Either header or querystring.
     if (req.headers.authorization) {
-      authPacket =
-        { ttl: req.headers['x-cf-ttl' ]
-        , date: req.headers['x-cf-date' ] }
+      authPacket = {
+        ttl: req.headers['x-cf-ttl'],
+        date: req.headers['x-cf-date']
+      }
     } else {
-      authPacket =
-        { ttl: req.query['x-cf-ttl' ]
-        , date: req.query['x-cf-date' ] }
+      authPacket = {
+        ttl: req.query['x-cf-ttl'],
+        date: req.query['x-cf-date']
+      }
     }
 
     authPacket.date = getInt(authPacket.date)
 
     if (authPacket.date === undefined) {
-      logger.warn('Missing x-cf-date')
+      debug('Missing x-cf-date')
       return cb(null)
     }
 
@@ -86,35 +82,30 @@ function createMiddleware(authProvider, options) {
     authProvider.lookupKey(creds.id, function (err, key) {
       if (err) return cb(err)
 
-      var valid = validSignature(req, authPacket, key, creds.signature
-        , { logger: logger, ignoreQueryKeys: options.ignoreQueryKeys })
+      var valid = validSignature(req, authPacket, key, creds.signature,
+        { logger: logger, ignoreQueryKeys: options.ignoreQueryKeys })
 
       if (!valid) {
-        logger.warn('Unsuccessful authorization', creds)
-        logger.debug('Authorization successful:', creds.id)
+        debug('Unsuccessful authorization', creds)
         return cb(null)
       }
-
       cb(null, creds.id)
-
     })
-
   }
 
-  function getInt(val) {
+  function getInt (val) {
     if (!isNaN(val)) {
       val = parseInt(val)
     }
     return val
   }
-
 }
 
 /*
  * Sign the request and see if it matches the signature
  * the client sent. Returns true if it matches, false if not.
  */
-function validSignature(req, authPacket, key, theirSig, options) {
+function validSignature (req, authPacket, key, theirSig, options) {
   options = options || {}
 
   options.ignoreQueryKeys = options.ignoreQueryKeys || []
@@ -133,15 +124,17 @@ function validSignature(req, authPacket, key, theirSig, options) {
   })
 
   var contentType = req.headers['content-type'] ? req.headers['content-type'].split(';')[0] : ''
-    , ourSig = createSignature(key, req.method, contentType, authPacket.date, url.format(urlParts), authPacket.ttl)
-    , requestDate = (new Date(authPacket.date)).getTime()
-    , currentDate = Date.now()
-    , difference = Math.abs(currentDate - requestDate)
-    , maxDifference = authPacket.ttl || 60000
+  var ourSig = createSignature(key, req.method, contentType, authPacket.date, url.format(urlParts), authPacket.ttl)
+  var requestDate = (new Date(authPacket.date)).getTime()
+  var currentDate = Date.now()
+  var difference = Math.abs(currentDate - requestDate)
+  var maxDifference = authPacket.ttl || 60000
 
-  options.logger.debug('Comparing:', ourSig, theirSig)
-  options.logger.debug('Request Time: ' + requestDate + ' Current Time: ' + currentDate + ' Difference: ' + difference)
+  debug('Comparing:', ourSig, theirSig)
+  debug('Request Time: ' + requestDate + ' Current Time: ' + currentDate + ' Difference: ' + difference)
 
   return (theirSig === ourSig) && difference < maxDifference
-
 }
+
+module.exports = createMiddleware
+module.exports.validSignature = validSignature

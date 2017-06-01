@@ -1,11 +1,8 @@
-module.exports = getCredentials
-
 // Look for valid creds in request. Can be with on querystring or headers,
 // but not a mixture. Headers will always override querystring
-function getCredentials(req) {
-
+function getCredentials (req) {
   var header
-    , creds
+  var creds
 
   if (req.headers.authorization) {
     header = req.headers.authorization
@@ -15,7 +12,6 @@ function getCredentials(req) {
     if (type[0] !== 'Catfish') throw new Error('Invalid authorization type')
 
     creds = type[1].split(':')
-
   } else if (req.query.authorization) {
     creds = req.query.authorization.split(':')
   } else {
@@ -26,3 +22,5 @@ function getCredentials(req) {
 
   return { id: creds[0], signature: creds[1] }
 }
+
+module.exports = getCredentials
