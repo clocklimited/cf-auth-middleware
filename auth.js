@@ -4,8 +4,7 @@ var url = require('url')
 var debug = require('debug')('cf-auth-middleware')
 
 function createMiddleware (authProvider, options) {
-  if (!options) options = {}
-  var logger = options.logger || console
+  options = options || {}
   var reqProperty = options.reqProperty || 'authedClient'
 
   if (typeof authProvider.authenticate !== 'function') {
@@ -83,7 +82,7 @@ function createMiddleware (authProvider, options) {
       if (err) return cb(err)
 
       var valid = validSignature(req, authPacket, key, creds.signature,
-        { logger: logger, ignoreQueryKeys: options.ignoreQueryKeys })
+        { ignoreQueryKeys: options.ignoreQueryKeys, defaultTtl: options.defaultTtl })
 
       if (!valid) {
         debug('Unsuccessful authorization', creds)
@@ -107,6 +106,7 @@ function createMiddleware (authProvider, options) {
  */
 function validSignature (req, authPacket, key, theirSig, options) {
   options = options || {}
+  options.defaultTtl = options.defaultTtl || 60000
 
   options.ignoreQueryKeys = options.ignoreQueryKeys || []
 
@@ -122,18 +122,20 @@ function validSignature (req, authPacket, key, theirSig, options) {
   options.ignoreQueryKeys.forEach(function (key) {
     delete urlParts.query[key]
   })
-
   var contentType = req.headers['content-type'] ? req.headers['content-type'].split(';')[0] : ''
   var ourSig = createSignature(key, req.method, contentType, authPacket.date, url.format(urlParts), authPacket.ttl)
   var requestDate = (new Date(authPacket.date)).getTime()
   var currentDate = Date.now()
   var difference = Math.abs(currentDate - requestDate)
-  var maxDifference = authPacket.ttl || 60000
+  var maxDifference = authPacket.ttl || options.defaultTtl
 
   debug('Comparing:', ourSig, theirSig)
-  debug('Request Time: ' + requestDate + ' Current Time: ' + currentDate + ' Difference: ' + difference)
+  debug('Request Time: ' + requestDate +
+  ' Current Time: ' + currentDate +
+  ' Difference: ' + difference +
+  ' TTL:' + maxDifference)
 
-  return (theirSig === ourSig) && difference < maxDifference
+  return (theirSig === ourSig) && difference <= maxDifference
 }
 
 module.exports = createMiddleware

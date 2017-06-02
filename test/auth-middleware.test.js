@@ -90,10 +90,8 @@ describe('authentication middleware', function () {
         })
   })
 
-  it('should respond with a 401 if an x-cf-date is outside of the acceptable default ttl (60s)', function (done) {
-    var date = new Date()
-    date.setHours(date.getHours() + 12)
-    var dateString = date.toUTCString()
+  it('should respond with a 401 if an x-cf-date is before TTL (60s)', function (done) {
+    var dateString = (new Date(Date.now() - 70000)).toUTCString()
     var hash = createSignature(authedAdministrator.key, 'GET', '', dateString, '/')
     var r = request(app)
         .get('/')
@@ -108,16 +106,70 @@ describe('authentication middleware', function () {
         })
   })
 
-  it('should respond with a 401 if an x-cf-date is outside of the acceptable custom ttl', function (done) {
-    var date = new Date()
-    date.setHours(date.getHours() + 36)
-    var dateString = date.toUTCString()
+  it('should respond with a 401 if an x-cf-date is after TTL (60s)', function (done) {
+    var dateString = (new Date(Date.now() + 70000)).toUTCString()
     var hash = createSignature(authedAdministrator.key, 'GET', '', dateString, '/')
     var r = request(app)
         .get('/')
         .set('Accept', 'application/json')
         .set('x-cf-date', dateString)
+        .set('Authorization', 'Catfish ' + authedAdministrator._id + ':' + hash)
+        .end(function (error, res) {
+          if (error) return done(error)
+          assert.equal(res.statusCode, 401)
+          r.app.close()
+          done()
+        })
+  })
+
+  it('should respond with a 401 if an x-cf-date is outside of the custom ttl', function (done) {
+    var dateString = (new Date(Date.now() + 86500000)).toUTCString()
+    var hash = createSignature(authedAdministrator.key, 'GET', '', dateString, '/', 86400000)
+    var r = request(app)
+        .get('/')
+        .set('Accept', 'application/json')
+        .set('x-cf-date', dateString)
         .set('x-cf-ttl', '86400000')
+        .set('Authorization', 'Catfish ' + authedAdministrator._id + ':' + hash)
+        .end(function (error, res) {
+          if (error) return done(error)
+          assert.equal(res.statusCode, 401)
+          r.app.close()
+          done()
+        })
+  })
+
+  it('should respond with a 200 when within an extended defaultTtl', function (done) {
+    var longTtlApp = express()
+    longTtlApp.use(createMiddleware(authProvider, { defaultTtl: 80000 }))
+    createRoutes(longTtlApp)
+
+    var dateString = (new Date(Date.now() + 75000)).toUTCString()
+    var hash = createSignature(authedAdministrator.key, 'GET', '', dateString, '/')
+    var r = request(longTtlApp)
+        .get('/')
+        .set('Accept', 'application/json')
+        .set('x-cf-date', dateString)
+        .set('Authorization', 'Catfish ' + authedAdministrator._id + ':' + hash)
+        .end(function (error, res) {
+          if (error) return done(error)
+          assert.equal(res.statusCode, 200)
+          r.app.close()
+          done()
+        })
+  })
+
+  it('should respond with a 401 when outside an extended defaultTtl', function (done) {
+    var longTtlApp = express()
+    longTtlApp.use(createMiddleware(authProvider, { defaultTtl: 80000 }))
+    createRoutes(longTtlApp)
+
+    var dateString = (new Date(Date.now() + 85000)).toUTCString()
+    var hash = createSignature(authedAdministrator.key, 'GET', '', dateString, '/')
+    var r = request(longTtlApp)
+        .get('/')
+        .set('Accept', 'application/json')
+        .set('x-cf-date', dateString)
         .set('Authorization', 'Catfish ' + authedAdministrator._id + ':' + hash)
         .end(function (error, res) {
           if (error) return done(error)
@@ -355,5 +407,17 @@ describe('#validSignature()', function () {
 
     // But valid when query string keys are ignored
     assert.equal(valid, true)
+  })
+
+  it('should allow defaultTtl option', function () {
+    var method = 'GET'
+    var date = new Date().getTime() + 60005
+    var path = '/a/b/c'
+    var request = { url: path, method: method, headers: {} }
+    var authPacket = { date: date }
+    var key = '123'
+    var signature = createSignature(key, method, '', date, path)
+    assert(validSignature(request, authPacket, key, signature, { defaultTtl: 60010 }))
+    assert(!validSignature(request, authPacket, key, signature))
   })
 })
