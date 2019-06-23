@@ -1,5 +1,7 @@
 # cf-auth-middleware
 
+[![Greenkeeper badge](https://badges.greenkeeper.io/clocklimited/cf-auth-middleware.svg)](https://greenkeeper.io/)
+
 Authentication middleware for APIs using cf-auth-provider
 
 ## Installation
