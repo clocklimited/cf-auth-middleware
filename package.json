@@ -28,17 +28,17 @@
     "cf-signature": "^2.0.0"
   },
   "devDependencies": {
-    "debug": "^2.6.8",
-    "eslint": "^3.19.0",
-    "eslint-config-standard": "^10.2.1",
+    "debug": "^4.1.1",
+    "eslint": "^6.0.0",
+    "eslint-config-standard": "^12.0.0",
     "eslint-plugin-import": "^2.3.0",
-    "eslint-plugin-node": "^4.2.2",
-    "eslint-plugin-promise": "^3.5.0",
-    "eslint-plugin-standard": "^3.0.1",
+    "eslint-plugin-node": "^9.1.0",
+    "eslint-plugin-promise": "^4.1.1",
+    "eslint-plugin-standard": "^4.0.0",
     "express": "^4.15.3",
     "hat": "^0.0.3",
     "istanbul": "^0.4.5",
-    "mocha": "^3.4.2",
-    "supertest": "^3.0.0"
+    "mocha": "^6.1.4",
+    "supertest": "^4.0.2"
   }
 }
